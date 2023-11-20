@@ -1,4 +1,4 @@
-const {Alunos} = require('../models/model')
+const {Alunos,Cursos} = require('../models/model')
 
 async function getAlunos() {
    return Alunos.findAll({attributes:['id','nome','email']})
@@ -29,28 +29,32 @@ async function editAluno(aluno) {
 }
 
 async function getAlunosCursos() {
-    const alunos = await execSql('SELECT id, nome FROM Alunos', []);
-    for (const aluno of alunos) {
-        const matriculas = await execSql('SELECT m.id as matricula, c.nome as curso FROM Matriculas as m INNER JOIN Cursos as c ON m.curso_id = c.id WHERE m.aluno_id = ?', [aluno.id]);
-        aluno['matriculas'] = matriculas;
+    try{
+        const alunos = await Alunos.findAll({attributes:['id','nome']})
+
+        for(const aluno of alunos){
+            const matriculas = await aluno.getMatriculas({include:Cursos})
+            aluno.dataValues.matriculas = matriculas
+        }
+        return alunos;
+    } catch(error){
+        throw new Error('Error ao buscar alunos e cursos' + error.message)
     }
-    return alunos;
 }
 
+
 async function getAlunoCursos(id) {
-    const aluno = await getAluno(id);
-    const matriculas = await getMatriculasPorAlunoId(id);
-    const cursos = [];
-    for (const matricula of matriculas) {
-        const professor = await getProfessorPorCurso(matricula.curso_id);
-        cursos.push({
-            id: matricula.matricula,
-            nome: matricula.curso,
-            professor: professor
-        });
+try{
+const aluno = await Alunos.findByPk(id,{attributes:['id','nome']})
+if(!aluno){
+    throw new Error("Erro ao encontrar aluno")
+}
+const matriculas = await aluno.getMatriculas({include:Cursos});
+aluno.dataValues.matriculas = matriculas;
+return aluno
+} catch{
+throw new Error("Erro ao buscar aluno e cursos por ID"+ error.message)
     }
-    aluno['cursos'] = cursos;
-    return aluno;
 }
 
 async function getAluno(id) {
